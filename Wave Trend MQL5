@@ -1,0 +1,138 @@
+//+------------------------------------------------------------------+
+//|                                                     WaveTrend.mq5|
+//+------------------------------------------------------------------+
+#property copyright "Luis Ariel 'Luisador'"
+#property version   "1.02"
+#property  description "Hola, hice este indicador en base al codigo de pinescript de tradingview: https://es.tradingview.com/v/jFQn4jYZ/"
+#property description "Grande LazyBear por inventar este hermoso indicador"
+
+#include <MovingAverages.mqh>
+#property indicator_separate_window
+#property indicator_plots 4
+#property indicator_buffers 10
+#property indicator_maximum 100
+#property indicator_minimum -100
+
+// Buffers de WaveTrend
+#property indicator_label1  "WT1"
+#property indicator_type1   DRAW_LINE
+#property indicator_color1  clrLimeGreen
+#property indicator_width1 2
+
+#property indicator_label2  "WT2"
+#property indicator_type2   DRAW_LINE
+#property indicator_color2  clrOrangeRed
+#property indicator_width2 2
+
+//Buffer Hsitograma
+#property indicator_label3 "Histograma"
+#property indicator_type3 DRAW_HISTOGRAM
+#property indicator_color3 clrSlateGray
+#property indicator_style3  STYLE_DASHDOT
+#property indicator_width3 2
+
+//-----Lineas de sobre compra y sobre venta
+#property indicator_level1 60
+#property indicator_level2 53
+#property indicator_level3 -60
+#property indicator_level4 -53
+#property indicator_levelcolor clrDarkGray
+#property indicator_levelstyle STYLE_SOLID
+#property indicator_levelwidth 1
+
+//+------------------------------------------------------------------+
+//| Input parameters                                                 |
+//+------------------------------------------------------------------+
+input int CanalLongitud = 10;  // Longitud del canal
+input int MediaLongitud = 21; // Longitud media
+
+// Buffers
+double BufferWT2[],TCI[],Histograma[]; // Buffers de indicador
+double Ema_Buffer[], D[],AP[], ESA[], ABS_DIIF[],Diff[],CI[],crosspoint[]; // Buffers calculos
+
+//+------------------------------------------------------------------+
+//| Initialization                                                   |
+//+------------------------------------------------------------------+
+int OnInit()
+  {
+// Configuración de buffers
+   SetIndexBuffer(0, TCI,INDICATOR_DATA);
+   SetIndexBuffer(1, BufferWT2,INDICATOR_DATA);
+   SetIndexBuffer(2, Histograma,INDICATOR_DATA);
+   SetIndexBuffer(3,Ema_Buffer,INDICATOR_CALCULATIONS);
+   SetIndexBuffer(4,ESA,INDICATOR_CALCULATIONS);
+   SetIndexBuffer(5,D,INDICATOR_CALCULATIONS);
+   SetIndexBuffer(6,AP,INDICATOR_CALCULATIONS);
+   SetIndexBuffer(7,CI,INDICATOR_CALCULATIONS);
+   SetIndexBuffer(8,ABS_DIIF,INDICATOR_CALCULATIONS);
+   SetIndexBuffer(9,Diff,INDICATOR_CALCULATIONS);
+
+//
+   IndicatorSetString(INDICATOR_LEVELTEXT,0,"Nivel sobre compra");
+   IndicatorSetString(INDICATOR_LEVELTEXT,3,"Nivel Sobre venta");
+   //IndicatorSetInteger(INDICATOR_LEVELCOLOR,0,clrRed);
+   //IndicatorSetInteger(INDICATOR_LEVELCOLOR,1,clrRed);
+   //IndicatorSetInteger(INDICATOR_LEVELCOLOR,2,clrGreen);
+   //IndicatorSetInteger(INDICATOR_LEVELCOLOR,3,clrGreen);
+
+   IndicatorSetString(INDICATOR_SHORTNAME,"WaveTrend Canal Longitud: "+ "("+(string)CanalLongitud+")"+ " MediaLongitud: "+"("+(string)MediaLongitud+")");
+
+   return(INIT_SUCCEEDED);
+  }
+//+------------------------------------------------------------------+
+//| Cálculo principal del indicador                                  |
+//+------------------------------------------------------------------+
+int OnCalculate(const int rates_total,
+                const int prev_calculated,
+                const datetime &time[],
+                const double &open[],
+                const double &high[],
+                const double &low[],
+                const double &close[],
+                const long &tick_volume[],
+                const long &volume[],
+                const int &spread[])
+  {
+
+   for(int i = prev_calculated; i < rates_total; i++)
+     {
+
+      //----- Calculos del indicador----------------
+      //----- Indicator calculations----------------
+      // Cálculo del precio típico
+      // Typical price calculation
+      AP[i] = (high[i] + low[i] + close[i]) / 3;
+
+      // Calcular el valor ESA
+      ExponentialMAOnBuffer(rates_total,prev_calculated,1,CanalLongitud,AP,ESA);
+
+      // Desviación absoluta
+      //Absolute deviation
+      ABS_DIIF[i] = MathAbs(AP[i] - ESA[i]);
+      ExponentialMAOnBuffer(rates_total,prev_calculated,1,CanalLongitud,ABS_DIIF,Ema_Buffer);
+
+      // Índice compuesto
+      //Composite index
+      Diff[i] = AP[i] - ESA[i];
+      if(Ema_Buffer[i] != 0)
+        {
+         CI[i] = Diff[i] / (0.015 * Ema_Buffer[i]);
+        }
+      else
+        {
+         Ema_Buffer[i] = 0;
+        }
+
+      // Main lines
+      //Lineas principales 
+      ExponentialMAOnBuffer(rates_total,prev_calculated,1,MediaLongitud,CI,TCI);
+      SimpleMAOnBuffer(rates_total,prev_calculated,1,4,TCI,BufferWT2);
+      
+      // Histogram
+      //Histrograma
+      Histograma[i] =TCI[i] -  BufferWT2[i] ;
+     }
+
+   return(rates_total);
+  }
+//+------------------------------------------------------------------+
