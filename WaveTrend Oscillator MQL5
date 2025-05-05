@@ -4,11 +4,11 @@
 #property copyright "Luis Ariel 'Luisador'"
 #property version   "1.02"
 #property  description "Hola, hice este indicador en base al codigo de pinescript de tradingview: https://es.tradingview.com/v/jFQn4jYZ/"
-#property description "Grande LazyBear por inventar este hermoso indicador"
+
 
 #include <MovingAverages.mqh>
 #property indicator_separate_window
-#property indicator_plots 4
+#property indicator_plots 3
 #property indicator_buffers 10
 #property indicator_maximum 100
 #property indicator_minimum -100
@@ -70,10 +70,10 @@ int OnInit()
 //
    IndicatorSetString(INDICATOR_LEVELTEXT,0,"Nivel sobre compra");
    IndicatorSetString(INDICATOR_LEVELTEXT,3,"Nivel Sobre venta");
-   //IndicatorSetInteger(INDICATOR_LEVELCOLOR,0,clrRed);
-   //IndicatorSetInteger(INDICATOR_LEVELCOLOR,1,clrRed);
-   //IndicatorSetInteger(INDICATOR_LEVELCOLOR,2,clrGreen);
-   //IndicatorSetInteger(INDICATOR_LEVELCOLOR,3,clrGreen);
+//IndicatorSetInteger(INDICATOR_LEVELCOLOR,0,clrRed);
+//IndicatorSetInteger(INDICATOR_LEVELCOLOR,1,clrRed);
+//IndicatorSetInteger(INDICATOR_LEVELCOLOR,2,clrGreen);
+//IndicatorSetInteger(INDICATOR_LEVELCOLOR,3,clrGreen);
 
    IndicatorSetString(INDICATOR_SHORTNAME,"WaveTrend Canal Longitud: "+ "("+(string)CanalLongitud+")"+ " MediaLongitud: "+"("+(string)MediaLongitud+")");
 
@@ -94,25 +94,36 @@ int OnCalculate(const int rates_total,
                 const int &spread[])
   {
 
-   for(int i = prev_calculated; i < rates_total; i++)
+//----- Calculos del indicador----------------
+   if(rates_total < MathMax(CanalLongitud,MediaLongitud))
      {
+      return 0;
+     }
+   int start = prev_calculated >0? prev_calculated -1:0;
 
-      //----- Calculos del indicador----------------
-      //----- Indicator calculations----------------
+   for(int i = 0; i < rates_total; i++)
+     {
       // Cálculo del precio típico
-      // Typical price calculation
       AP[i] = (high[i] + low[i] + close[i]) / 3;
 
-      // Calcular el valor ESA
-      ExponentialMAOnBuffer(rates_total,prev_calculated,1,CanalLongitud,AP,ESA);
+     }
 
-      // Desviación absoluta
-      //Absolute deviation
+
+// Calcular el valor ESA
+   ExponentialMAOnBuffer(rates_total,prev_calculated,0,CanalLongitud,AP,ESA);
+
+// Desviación absoluta
+   for(int i =0; i<rates_total; i++)
+     {
       ABS_DIIF[i] = MathAbs(AP[i] - ESA[i]);
-      ExponentialMAOnBuffer(rates_total,prev_calculated,1,CanalLongitud,ABS_DIIF,Ema_Buffer);
+     }
 
-      // Índice compuesto
-      //Composite index
+   ExponentialMAOnBuffer(rates_total,prev_calculated,0,CanalLongitud,ABS_DIIF,Ema_Buffer);
+
+// Índice compuesto
+//Composite index
+   for(int i =0; i<rates_total;i++)
+     {
       Diff[i] = AP[i] - ESA[i];
       if(Ema_Buffer[i] != 0)
         {
@@ -120,19 +131,28 @@ int OnCalculate(const int rates_total,
         }
       else
         {
-         Ema_Buffer[i] = 0;
+         CI[i] = 0;
         }
-
-      // Main lines
-      //Lineas principales 
-      ExponentialMAOnBuffer(rates_total,prev_calculated,1,MediaLongitud,CI,TCI);
-      SimpleMAOnBuffer(rates_total,prev_calculated,1,4,TCI,BufferWT2);
-      
-      // Histogram
-      //Histrograma
-      Histograma[i] =TCI[i] -  BufferWT2[i] ;
      }
 
-   return(rates_total);
+//Lineas principales
+ExponentialMAOnBuffer(rates_total,prev_calculated,0,MediaLongitud,CI,TCI);
+SimpleMAOnBuffer(rates_total,prev_calculated,0,4,TCI,BufferWT2);
+
+//Histrograma
+for(int i =0; i < rates_total; i++)
+  {
+   Histograma[i] =TCI[i] -  BufferWT2[i] ;
   }
+
+
+
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+return(rates_total);
+  }
+
+
 //+------------------------------------------------------------------+
